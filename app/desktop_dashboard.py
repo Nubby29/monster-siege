@@ -3,15 +3,15 @@ import tkinter as tk
 from tkinter import ttk
 from src.game.engine import SiegeEngine
 
-WIDTH, HEIGHT = 900, 560
+WIDTH, HEIGHT = 760, 420
 MAX_MAP_RADIUS = 290
 
 class MonsterSiegeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Monster Siege — Prototype 0.5")
-        self.root.geometry("1080x800")
-        self.root.minsize(900, 720)
+        self.root.geometry("1160x780")
+        self.root.minsize(980, 680)
         self.game = SiegeEngine()
         self.running = False
         self.selected_id = None
@@ -71,7 +71,7 @@ class MonsterSiegeApp:
         self.potion_button = ttk.Button(encounter, text="🧪 Potion", command=self.potion_selected, state="disabled")
         self.potion_button.pack(fill="x", pady=(4, 0))
         self.flee_button = ttk.Button(encounter, text="Flee", command=self.flee, state="disabled")
-        self.flee_button.pack(fill="x")
+        self.flee_button.pack(fill="x", pady=(4, 0))
         self.encounter_message = ttk.Label(encounter, text="", wraplength=190, justify="center")
         self.encounter_message.pack(pady=18)
 
