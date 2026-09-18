@@ -9,7 +9,7 @@ MAX_MAP_RADIUS = 290
 class MonsterSiegeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Monster Siege — Prototype 0.3")
+        self.root.title("Monster Siege — Prototype 0.4")
         self.root.geometry("1080x800")
         self.root.minsize(900, 720)
         self.game = SiegeEngine()
@@ -22,7 +22,6 @@ class MonsterSiegeApp:
     def build(self):
         root = ttk.Frame(self.root, padding=14)
         root.pack(fill="both", expand=True)
-
         header = ttk.Frame(root)
         header.pack(fill="x")
         ttk.Label(header, text="MONSTER SIEGE", font=("Segoe UI", 24, "bold")).pack(side="left")
@@ -30,12 +29,13 @@ class MonsterSiegeApp:
 
         self.stats = ttk.Label(root, font=("Segoe UI", 11))
         self.stats.pack(anchor="w", pady=(10, 4))
+        self.base_bar = ttk.Progressbar(root, maximum=100)
+        self.base_bar.pack(fill="x", pady=(0, 4))
         self.threat = ttk.Progressbar(root, maximum=100)
         self.threat.pack(fill="x", pady=(0, 8))
 
         body = ttk.Frame(root)
         body.pack(fill="both", expand=True)
-
         self.canvas = tk.Canvas(body, bg="#dfe7dc", highlightthickness=1, highlightbackground="#b9c2b5")
         self.canvas.pack(side="left", fill="both", expand=True)
         self.canvas.bind("<Button-1>", self.map_click)
@@ -70,11 +70,12 @@ class MonsterSiegeApp:
         self.boss_button = ttk.Button(controls, text="⚔ Attack Boss", command=self.boss_attack, state="disabled")
         self.boss_button.pack(side="left", padx=(0, 8))
         ttk.Button(controls, text="Reset", command=self.reset).pack(side="right")
-
         self.status = ttk.Label(root, font=("Segoe UI", 12, "bold"))
         self.status.pack(anchor="w", pady=(8, 0))
 
     def toggle(self):
+        if self.game.state.game_over:
+            return
         self.running = not self.running
         self.toggle_button.config(text="Pause Siege" if self.running else "Start Siege")
         if self.running:
@@ -85,7 +86,8 @@ class MonsterSiegeApp:
             return
         self.game.advance(1)
         self.refresh()
-        self.root.after(1000, self.tick)
+        if not self.game.state.game_over:
+            self.root.after(1000, self.tick)
 
     def spawn(self):
         self.game.spawn_monster()
@@ -109,7 +111,7 @@ class MonsterSiegeApp:
         before = monster.hp
         self.game.attack(monster.id, 25)
         if monster.alive:
-            self.message = f"You dealt {before - monster.hp} damage."
+            self.message = f"You dealt {before - monster.hp} damage. It is still {monster.distance_m:.0f}m away."
         else:
             self.message = f"{monster.name} defeated! +{5 + monster.threat_value} coins."
             self.selected_id = None
@@ -147,13 +149,13 @@ class MonsterSiegeApp:
         return cx + math.cos(angle) * radius, cy + math.sin(angle) * radius
 
     def map_click(self, event):
-        if self.game.state.raid_active:
+        if self.game.state.raid_active or self.game.state.game_over:
             return
         w = max(self.canvas.winfo_width(), WIDTH)
         h = max(self.canvas.winfo_height(), HEIGHT)
         cx, cy = w / 2, h / 2
         closest = None
-        closest_distance = 38
+        closest_distance = 40
         for monster in [m for m in self.game.monsters if m.alive]:
             x, y = self.world_position(monster, cx, cy)
             distance = math.hypot(event.x - x, event.y - y)
@@ -171,7 +173,6 @@ class MonsterSiegeApp:
         w = max(c.winfo_width(), WIDTH)
         h = max(c.winfo_height(), HEIGHT)
         cx, cy = w / 2, h / 2
-
         c.create_text(16, 14, anchor="nw", text="LOCAL SIEGE ZONE · SCHEMATIC / NOT A REAL MAP",
                       fill="#526052", font=("Segoe UI", 10, "bold"))
 
@@ -196,38 +197,54 @@ class MonsterSiegeApp:
             for monster in [m for m in self.game.monsters if m.alive]:
                 x, y = self.world_position(monster, cx, cy)
                 selected = monster.id == self.selected_id
-                outline = "#2563eb" if selected else (
-                    "#b91c1c" if monster.distance_m <= 120 else
-                    "#c47b18" if monster.distance_m <= 350 else "#526b53"
-                )
+                if monster.distance_m <= 120:
+                    outline = "#b91c1c"
+                elif monster.distance_m <= 350:
+                    outline = "#c47b18"
+                else:
+                    outline = "#526b53"
+                if monster.breached:
+                    outline = "#7f1d1d"
                 size = 31 if monster.rarity.value == "elite" else 25
                 if selected:
                     c.create_oval(x-size-7, y-size-7, x+size+7, y+size+7, outline="#2563eb", width=2)
                 c.create_oval(x-size, y-size, x+size, y+size, fill="#fff", outline=outline, width=3)
                 c.create_text(x, y-2, text=monster.icon, font=("Segoe UI Emoji", size))
-                c.create_text(x, y+size+13, text=monster.name, fill="#293329", font=("Segoe UI", 9, "bold"))
+                label = "BREACH!" if monster.breached else monster.name
+                c.create_text(x, y+size+13, text=label, fill="#7f1d1d" if monster.breached else "#293329",
+                              font=("Segoe UI", 9, "bold"))
                 c.create_text(x, y+size+27, text=f"{monster.distance_m:.0f}m", fill="#526052", font=("Segoe UI", 8))
 
         c.create_oval(cx-48, cy-48, cx+48, cy+48, fill="#e7f0ff", outline="#2563eb", width=3)
         c.create_text(cx, cy-4, text="🏠", font=("Segoe UI Emoji", 30))
         c.create_text(cx, cy+34, text="YOUR BASE", fill="#1e40af", font=("Segoe UI", 9, "bold"))
 
+        if self.game.state.game_over:
+            c.create_rectangle(cx-240, cy-70, cx+240, cy+70, fill="#fff", outline="#b91c1c", width=3)
+            c.create_text(cx, cy-25, text="BASE DESTROYED", fill="#991b1b", font=("Segoe UI", 24, "bold"))
+            c.create_text(cx, cy+18, text="Press Reset to begin a new siege.", fill="#526052", font=("Segoe UI", 11))
+
     def refresh(self):
         s = self.game.state
         boss = s.raid_boss
         living = [m for m in self.game.monsters if m.alive]
-        self.stats.config(text=f"Wave {s.wave}   |   Threat {s.threat}/{s.threat_threshold}   |   Defeated {s.defeated}   |   Coins {s.coins}   |   Monsters {len(living)}")
+        self.stats.config(text=f"Wave {s.wave}   |   Base HP {s.base_hp}/{s.max_base_hp}   |   Threat {s.threat}/{s.threat_threshold}   |   Defeated {s.defeated}   |   Coins {s.coins}   |   Monsters {len(living)}")
+        self.base_bar["value"] = s.base_hp
         self.threat["value"] = s.threat
 
         selected = self.get_selected()
         if selected and not boss:
             self.encounter_icon.config(text=selected.icon)
             self.encounter_name.config(text=selected.name)
-            self.encounter_info.config(text=f"{selected.rarity.value.title()}\n{selected.distance_m:.0f}m from base")
-            self.hp_bar["value"] = (selected.hp / max(1, 35)) * 100
+            distance_state = "BREACHED" if selected.breached else (
+                "CRITICAL" if selected.distance_m <= 120 else
+                "DANGER" if selected.distance_m <= 350 else "APPROACHING"
+            )
+            self.encounter_info.config(text=f"{selected.rarity.value.title()} · {distance_state}\n{selected.distance_m:.0f}m from base")
+            self.hp_bar["value"] = (selected.hp / 35) * 100
             self.hp_label.config(text=f"HP {selected.hp}/35")
-            self.attack_button.config(state="normal")
-            self.flee_button.config(state="normal")
+            self.attack_button.config(state="disabled" if s.game_over else "normal")
+            self.flee_button.config(state="disabled" if s.game_over else "normal")
             self.encounter_message.config(text=self.message)
         else:
             self.encounter_icon.config(text=boss.icon if boss else "👾")
@@ -239,20 +256,33 @@ class MonsterSiegeApp:
             self.flee_button.config(state="disabled")
             self.encounter_message.config(text=self.message)
 
-        if boss:
+        if s.game_over:
+            self.status.config(text="💥 YOUR BASE HAS BEEN DESTROYED — reset to start another siege.")
+            self.boss_button.config(state="disabled")
+            self.running = False
+            self.toggle_button.config(text="Start Siege")
+        elif boss:
             self.status.config(text=f"🚨 RAID BOSS INCOMING — {boss.icon} {boss.name} · {boss.hp}/{boss.max_hp} HP")
             self.boss_button.config(state="normal")
         else:
             nearest = min((m.distance_m for m in living), default=None)
+            breached = sum(m.breached for m in living)
             status = "🏠 Siege active. Click a monster to fight it."
             if nearest is not None:
                 status += f" Nearest threat: {nearest:.0f}m."
+            if breached:
+                status += f" ⚠ {breached} monster(s) at the base!"
             self.status.config(text=status)
             self.boss_button.config(state="disabled")
 
         self.draw_world()
 
+    def destroy(self):
+        self.running = False
+        self.root.destroy()
+
 if __name__ == "__main__":
     root = tk.Tk()
     MonsterSiegeApp(root)
+    root.protocol("WM_DELETE_WINDOW", root.destroy)
     root.mainloop()
