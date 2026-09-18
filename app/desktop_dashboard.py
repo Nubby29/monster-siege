@@ -9,7 +9,7 @@ MAX_MAP_RADIUS = 290
 class MonsterSiegeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Monster Siege — Prototype 0.4")
+        self.root.title("Monster Siege — Prototype 0.5")
         self.root.geometry("1080x800")
         self.root.minsize(900, 720)
         self.game = SiegeEngine()
@@ -56,6 +56,12 @@ class MonsterSiegeApp:
         self.hp_label.pack()
         self.attack_button = ttk.Button(encounter, text="⚔ Attack", command=self.attack_selected, state="disabled")
         self.attack_button.pack(fill="x", pady=(16, 6))
+        self.defend_button = ttk.Button(encounter, text="🛡 Defend", command=self.defend_selected, state="disabled")
+        self.defend_button.pack(fill="x", pady=(4, 0))
+        self.skill_button = ttk.Button(encounter, text="⚡ Power Strike", command=self.skill_selected, state="disabled")
+        self.skill_button.pack(fill="x", pady=(4, 0))
+        self.potion_button = ttk.Button(encounter, text="🧪 Potion", command=self.potion_selected, state="disabled")
+        self.potion_button.pack(fill="x", pady=(4, 0))
         self.flee_button = ttk.Button(encounter, text="Flee", command=self.flee, state="disabled")
         self.flee_button.pack(fill="x")
         self.encounter_message = ttk.Label(encounter, text="", wraplength=190, justify="center")
@@ -115,6 +121,27 @@ class MonsterSiegeApp:
         else:
             self.message = f"{monster.name} defeated! +{5 + monster.threat_value} coins."
             self.selected_id = None
+        self.refresh()
+
+    def defend_selected(self):
+        monster = self.get_selected()
+        if monster:
+            self.game.defend(monster.id)
+            self.message = "You guarded. The monster's next attack was reduced."
+        self.refresh()
+
+    def skill_selected(self):
+        monster = self.get_selected()
+        if monster and self.game.use_skill(monster.id):
+            self.message = "Power Strike used."
+            if not monster.alive:
+                self.selected_id = None
+        self.refresh()
+
+    def potion_selected(self):
+        monster = self.get_selected()
+        if monster and self.game.use_potion(monster.id):
+            self.message = "Potion restored 30 HP. The monster retaliated."
         self.refresh()
 
     def flee(self):
@@ -244,6 +271,9 @@ class MonsterSiegeApp:
             self.hp_bar["value"] = (selected.hp / 35) * 100
             self.hp_label.config(text=f"HP {selected.hp}/35")
             self.attack_button.config(state="disabled" if s.game_over else "normal")
+            self.defend_button.config(state="disabled" if s.game_over else "normal")
+            self.skill_button.config(state="disabled" if s.game_over or s.skill_cooldown > 0 else "normal")
+            self.potion_button.config(state="disabled" if s.game_over or s.potions <= 0 or s.player_hp >= s.max_player_hp else "normal")
             self.flee_button.config(state="disabled" if s.game_over else "normal")
             self.encounter_message.config(text=self.message)
         else:
@@ -253,6 +283,9 @@ class MonsterSiegeApp:
             self.hp_bar["value"] = ((boss.hp / boss.max_hp) * 100) if boss else 0
             self.hp_label.config(text=f"HP {boss.hp}/{boss.max_hp}" if boss else "")
             self.attack_button.config(state="disabled")
+            self.defend_button.config(state="disabled")
+            self.skill_button.config(state="disabled")
+            self.potion_button.config(state="disabled")
             self.flee_button.config(state="disabled")
             self.encounter_message.config(text=self.message)
 
