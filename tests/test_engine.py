@@ -37,5 +37,14 @@ class SiegeEngineTests(unittest.TestCase):
         self.assertFalse(game.state.raid_active)
         self.assertEqual(game.state.threat, 0)
 
+    def test_breached_monster_damages_base(self):
+        game = SiegeEngine(seed=1)
+        monster = game.spawn_monster()
+        monster.distance_m = 1
+        before = game.state.base_hp
+        game.advance(1)
+        self.assertTrue(monster.breached)
+        self.assertLess(game.state.base_hp, before)
+
 if __name__ == "__main__":
     unittest.main()
