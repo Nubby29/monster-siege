@@ -10,8 +10,8 @@ class MonsterSiegeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Monster Siege — Prototype 0.5")
-        self.root.geometry("1160x700")
-        self.root.minsize(980, 650)
+        self.root.geometry("1160x720")
+        self.root.minsize(980, 680)
         self.game = SiegeEngine()
         self.running = False
         self.selected_id = None
@@ -29,7 +29,7 @@ class MonsterSiegeApp:
         header = ttk.Frame(root)
         header.grid(row=0, column=0, sticky="ew")
         ttk.Label(header, text="MONSTER SIEGE", font=("Segoe UI", 24, "bold")).pack(side="left")
-        ttk.Label(header, text="The monsters come to you.", font=("Segoe UI", 11)).pack(side="left", padx=14, pady=(8, 0))
+        ttk.Label(header, text="The monsters come to you.", font=("Segoe UI", 11)).pack(side="left", padx=14, pady=(4, 0))
 
         self.stats = ttk.Label(root, font=("Segoe UI", 11))
         self.stats.grid(row=1, column=0, sticky="ew", pady=(8, 3))
@@ -38,23 +38,23 @@ class MonsterSiegeApp:
         self.threat = ttk.Progressbar(root, maximum=100)
         self.threat.grid(row=3, column=0, sticky="ew", pady=(0, 6))
 
-        body = ttk.Frame(root, height=330)
+        body = ttk.Frame(root, height=360)
         body.grid(row=4, column=0, sticky="ew")
         body.grid_propagate(False)
         body.columnconfigure(0, weight=1)
 
-        self.canvas = tk.Canvas(body, width=820, height=330, bg="#dfe7dc",
+        self.canvas = tk.Canvas(body, width=820, height=360, bg="#dfe7dc",
                                 highlightthickness=1, highlightbackground="#b9c2b5")
         self.canvas.grid(row=0, column=0, sticky="nsew")
         self.canvas.bind("<Button-1>", self.map_click)
 
-        encounter = ttk.Frame(body, width=205, padding=(10, 2))
+        encounter = ttk.Frame(body, width=205, height=360, padding=(8, 0))
         encounter.grid(row=0, column=1, sticky="ns")
         encounter.grid_propagate(False)
 
         ttk.Label(encounter, text="ENCOUNTER", font=("Segoe UI", 15, "bold")).pack(anchor="w")
         ttk.Separator(encounter).pack(fill="x", pady=4)
-        self.encounter_icon = ttk.Label(encounter, text="👾", font=("Segoe UI Emoji", 30))
+        self.encounter_icon = ttk.Label(encounter, text="👾", font=("Segoe UI Emoji", 24))
         self.encounter_icon.pack(pady=0)
         self.encounter_name = ttk.Label(encounter, text="No target", font=("Segoe UI", 13, "bold"))
         self.encounter_name.pack()
@@ -66,14 +66,14 @@ class MonsterSiegeApp:
         self.hp_label = ttk.Label(encounter, text="")
         self.hp_label.pack()
 
-        ttk.Label(encounter, text="HUNTER HP", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(4, 0))
+        ttk.Label(encounter, text="HUNTER HP", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(2, 0))
         self.player_bar = ttk.Progressbar(encounter, maximum=100, length=180)
         self.player_bar.pack(pady=1)
         self.player_label = ttk.Label(encounter, text="")
         self.player_label.pack()
 
-        ttk.Label(encounter, text="COMBAT LOG", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(3, 0))
-        self.combat_log = tk.Listbox(encounter, height=3, width=27, font=("Consolas", 7))
+        ttk.Label(encounter, text="COMBAT LOG", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(2, 0))
+        self.combat_log = tk.Listbox(encounter, height=2, width=27, font=("Consolas", 7))
         self.combat_log.pack(fill="x")
 
         self.attack_button = ttk.Button(encounter, text="⚔ Attack", command=self.attack_selected, state="disabled")
@@ -90,7 +90,7 @@ class MonsterSiegeApp:
         self.encounter_message.pack(pady=1)
 
         controls = ttk.Frame(root)
-        controls.grid(row=5, column=0, sticky="ew", pady=(6, 0))
+        controls.grid(row=5, column=0, sticky="ew", pady=(4, 0))
         self.toggle_button = ttk.Button(controls, text="Start Siege", command=self.toggle)
         self.toggle_button.pack(side="left", padx=(0, 6))
         ttk.Button(controls, text="Spawn Monster", command=self.spawn).pack(side="left", padx=(0, 6))
