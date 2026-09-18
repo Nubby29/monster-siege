@@ -15,12 +15,13 @@ class SiegeEngine:
         self.state = GameState()
         self.monsters: list[Monster] = []
         self.next_id = 1
+        self.spawn_cooldown = 0.0
 
     def spawn_monster(self) -> Monster | None:
         if self.state.raid_active:
             return None
         name, rarity, icon, threat, hp = self.rng.choice(MONSTERS)
-        monster = Monster(self.next_id, name, rarity, round(self.rng.uniform(120, 900), 1), hp, threat, icon)
+        monster = Monster(self.next_id, name, rarity, round(self.rng.uniform(450, 950), 1), hp, threat, icon)
         self.next_id += 1
         self.monsters.append(monster)
         self.state.threat = min(self.state.threat_threshold, self.state.threat + threat)
@@ -32,9 +33,11 @@ class SiegeEngine:
         seconds = max(0, min(seconds, 300))
         for monster in self.monsters:
             if monster.alive:
-                monster.distance = max(0.0, round(monster.distance - seconds * self.rng.uniform(0.8, 2.2), 1))
-        if not self.state.raid_active and self.rng.random() < min(0.9, seconds / 30):
+                monster.distance_m = max(0.0, round(monster.distance_m - seconds * self.rng.uniform(3.0, 7.0), 1))
+        self.spawn_cooldown -= seconds
+        if not self.state.raid_active and self.spawn_cooldown <= 0:
             self.spawn_monster()
+            self.spawn_cooldown = self.rng.uniform(8, 18)
 
     def attack(self, monster_id: int, damage: int = 25) -> bool:
         monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
@@ -69,4 +72,5 @@ class SiegeEngine:
             self.state.raid_active = False
             self.state.raid_boss = None
             self.monsters.clear()
+            self.spawn_cooldown = 0
         return True
