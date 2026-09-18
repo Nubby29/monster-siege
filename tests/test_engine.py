@@ -46,5 +46,36 @@ class SiegeEngineTests(unittest.TestCase):
         self.assertTrue(monster.breached)
         self.assertLess(game.state.base_hp, before)
 
+    def test_attack_causes_monster_counter(self):
+        game = SiegeEngine(seed=1)
+        monster = game.spawn_monster()
+        before = game.state.player_hp
+        game.attack(monster.id, 1)
+        self.assertLess(game.state.player_hp, before)
+
+    def test_defend_reduces_incoming_damage(self):
+        game = SiegeEngine(seed=1)
+        monster = game.spawn_monster()
+        game.state.player_hp = 100
+        game.defend(monster.id)
+        self.assertLess(game.state.player_hp, 100)
+        self.assertFalse(game.state.defending)
+
+    def test_potion_consumes_and_heals(self):
+        game = SiegeEngine(seed=1)
+        monster = game.spawn_monster()
+        game.state.player_hp = 50
+        before = game.state.potions
+        game.use_potion(monster.id)
+        self.assertEqual(game.state.potions, before - 1)
+        self.assertGreater(game.state.player_hp, 50)
+
+    def test_skill_has_cooldown(self):
+        game = SiegeEngine(seed=1)
+        monster = game.spawn_monster()
+        game.use_skill(monster.id, 1)
+        self.assertEqual(game.state.skill_cooldown, 3)
+        self.assertFalse(game.use_skill(monster.id, 1))
+
 if __name__ == "__main__":
     unittest.main()
