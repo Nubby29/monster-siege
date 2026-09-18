@@ -21,6 +21,26 @@ class SiegeEngine:
         self.state.combat_log.append(message)
         self.state.combat_log = self.state.combat_log[-8:]
 
+    def _counter(self, monster):
+        if not monster.alive or self.state.game_over: return
+        damage = self.rng.randint(5, 12) + (3 if monster.rarity == MonsterRarity.ELITE else 0)
+        if self.state.defending:
+            damage = max(1, damage // 2)
+            self.state.defending = False
+            self.log(f'🛡 Guard reduced {monster.name} damage to {damage}.')
+        else: self.log(f'{monster.name} attacked you for {damage} damage.')
+        self.state.player_hp = max(0, self.state.player_hp - damage)
+        if self.state.player_hp == 0:
+            self.state.game_over = True
+            self.log('💀 Hunter defeated.')
+
+    def _cooldown(self):
+        self.state.skill_cooldown = max(0, self.state.skill_cooldown - 1)
+
+    def log(self, message: str):
+        self.state.combat_log.append(message)
+        self.state.combat_log = self.state.combat_log[-8:]
+
     def spawn_monster(self) -> Monster | None:
         if self.state.raid_active or self.state.game_over:
             return None
@@ -29,6 +49,8 @@ class SiegeEngine:
         self.next_id += 1
         self.monsters.append(monster)
         self.state.threat = min(self.state.threat_threshold, self.state.threat + threat)
+        self.log(f'{name} entered the siege zone (+{threat} threat).')
+        if self.state.threat >= self.state.threat_threshold: self.start_raid()
         self.log(f"{name} entered the siege zone (+{threat} threat).")
         if self.state.threat >= self.state.threat_threshold:
             self.start_raid()
@@ -144,6 +166,52 @@ class SiegeEngine:
             self.log(f"✓ {monster.name} defeated. +{reward} coins.")
         else:
             self._monster_counter(monster)
+        if monster.hp == 0:
+            monster.alive = False
+            self.state.defeated += 1
+            reward = 5 + monster.threat_value
+            self.state.coins += reward
+            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
+            self.log(f'✓ {monster.name} defeated. +{reward} coins.')
+        else:
+            self._counter(monster)
+        self._cooldown()
+        return True
+
+    def defend(self, monster_id: int) -> bool:
+        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
+        if not monster or self.state.game_over: return False
+        self.state.defending = True
+        self.log(f'You raised your guard against {monster.name}.')
+        self._counter(monster)
+        self._cooldown()
+        return True
+
+    def use_potion(self, monster_id: int) -> bool:
+        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
+        if not monster or self.state.game_over or self.state.potions <= 0 or self.state.player_hp >= self.state.max_player_hp: return False
+        before = self.state.player_hp
+        self.state.player_hp = min(self.state.max_player_hp, self.state.player_hp + 30)
+        self.state.potions -= 1
+        self.log(f'🧪 Potion restored {self.state.player_hp-before} HP.')
+        self._counter(monster)
+        self._cooldown()
+        return True
+
+    def use_skill(self, monster_id: int) -> bool:
+        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
+        if not monster or self.state.game_over or self.state.skill_cooldown > 0: return False
+        monster.hp = max(0, monster.hp - 45)
+        self.state.skill_cooldown = 3
+        self.log(f'⚡ Power Strike dealt 45 damage to {monster.name}.')
+        if monster.hp == 0:
+            monster.alive = False
+            self.state.defeated += 1
+            reward = 5 + monster.threat_value
+            self.state.coins += reward
+            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
+            self.log(f'✓ {monster.name} defeated. +{reward} coins.')
+        else: self._counter(monster)
         return True
 
     def start_raid(self) -> RaidBoss:
