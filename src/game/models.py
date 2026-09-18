@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, field
 from enum import Enum
 
 class MonsterRarity(str, Enum):
@@ -44,4 +44,10 @@ class GameState:
     raid_active: bool = False
     raid_boss: RaidBoss | None = None
     game_over: bool = False
+    player_hp: int = 100
+    max_player_hp: int = 100
+    potions: int = 3
+    skill_cooldown: int = 0
+    defending: bool = False
+    combat_log: list[str] = field(default_factory=list)
     combat_log: list[str] = field(default_factory=list)
