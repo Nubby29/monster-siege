@@ -17,6 +17,7 @@ class Monster:
     threat_value: int
     icon: str = "👾"
     alive: bool = True
+    breached: bool = False
 
 @dataclass
 class RaidBoss:
@@ -33,5 +34,8 @@ class GameState:
     wave: int = 1
     coins: int = 0
     defeated: int = 0
+    base_hp: int = 100
+    max_base_hp: int = 100
     raid_active: bool = False
     raid_boss: RaidBoss | None = None
+    game_over: bool = False
