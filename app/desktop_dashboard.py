@@ -35,8 +35,9 @@ class MonsterSiegeApp:
         self.threat.pack(fill="x", pady=(0, 8))
 
         body = ttk.Frame(root)
-        body.pack(fill="both", expand=True)
+        body.pack(fill="x")
         self.canvas = tk.Canvas(body, bg="#dfe7dc", highlightthickness=1, highlightbackground="#b9c2b5")
+        self.canvas.config(height=430)
         self.canvas.pack(side="left", fill="both", expand=True)
         self.canvas.bind("<Button-1>", self.map_click)
 
@@ -61,15 +62,15 @@ class MonsterSiegeApp:
         self.player_label.pack()
         ttk.Label(encounter, text="COMBAT LOG", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(10, 2))
         self.combat_log = tk.Listbox(encounter, height=7, width=30, font=("Consolas", 8))
-        self.combat_log.pack(fill="x")
+        self.combat_log.pack(fill="x", pady=(0, 2))
         self.attack_button = ttk.Button(encounter, text="⚔ Attack", command=self.attack_selected, state="disabled")
-        self.attack_button.pack(fill="x", pady=(16, 6))
+        self.attack_button.pack(fill="x", pady=(6, 2))
         self.defend_button = ttk.Button(encounter, text="🛡 Defend", command=self.defend_selected, state="disabled")
-        self.defend_button.pack(fill="x", pady=(4, 0))
+        self.defend_button.pack(fill="x", pady=(2, 0))
         self.skill_button = ttk.Button(encounter, text="⚡ Power Strike", command=self.skill_selected, state="disabled")
-        self.skill_button.pack(fill="x", pady=(4, 0))
+        self.skill_button.pack(fill="x", pady=(2, 0))
         self.potion_button = ttk.Button(encounter, text="🧪 Potion", command=self.potion_selected, state="disabled")
-        self.potion_button.pack(fill="x", pady=(4, 0))
+        self.potion_button.pack(fill="x", pady=(2, 0))
         self.flee_button = ttk.Button(encounter, text="Flee", command=self.flee, state="disabled")
         self.flee_button.pack(fill="x", pady=(4, 0))
         self.encounter_message = ttk.Label(encounter, text="", wraplength=190, justify="center")
@@ -296,6 +297,13 @@ class MonsterSiegeApp:
             self.potion_button.config(state="disabled")
             self.flee_button.config(state="disabled")
             self.encounter_message.config(text=self.message)
+
+        self.player_bar["value"] = s.player_hp
+        self.player_label.config(text=f"HP {s.player_hp}/{s.max_player_hp} · Potions {s.potions} · Skill CD {s.skill_cooldown}")
+        self.combat_log.delete(0, tk.END)
+        for line in s.combat_log:
+            self.combat_log.insert(tk.END, line)
+        self.combat_log.yview_moveto(1)
 
         if s.game_over:
             self.status.config(text="💥 YOUR BASE HAS BEEN DESTROYED — reset to start another siege.")
