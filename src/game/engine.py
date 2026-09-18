@@ -18,7 +18,7 @@ class SiegeEngine:
         self.spawn_cooldown = 0.0
 
     def spawn_monster(self) -> Monster | None:
-        if self.state.raid_active:
+        if self.state.raid_active or self.state.game_over:
             return None
         name, rarity, icon, threat, hp = self.rng.choice(MONSTERS)
         monster = Monster(self.next_id, name, rarity, round(self.rng.uniform(450, 950), 1), hp, threat, icon)
@@ -30,16 +30,30 @@ class SiegeEngine:
         return monster
 
     def advance(self, seconds: int = 10) -> None:
+        if self.state.game_over:
+            return
         seconds = max(0, min(seconds, 300))
         for monster in self.monsters:
-            if monster.alive:
-                monster.distance_m = max(0.0, round(monster.distance_m - seconds * self.rng.uniform(3.0, 7.0), 1))
+            if not monster.alive:
+                continue
+            old_distance = monster.distance_m
+            monster.distance_m = max(0.0, round(monster.distance_m - seconds * self.rng.uniform(3.0, 7.0), 1))
+            if monster.distance_m == 0 and not monster.breached:
+                monster.breached = True
+            if monster.breached:
+                # A monster that reaches the base damages it continuously until defeated.
+                self.state.base_hp = max(0, self.state.base_hp - int(2 * seconds))
         self.spawn_cooldown -= seconds
+        if self.state.base_hp <= 0:
+            self.state.game_over = True
+            return
         if not self.state.raid_active and self.spawn_cooldown <= 0:
             self.spawn_monster()
             self.spawn_cooldown = self.rng.uniform(8, 18)
 
     def attack(self, monster_id: int, damage: int = 25) -> bool:
+        if self.state.game_over:
+            return False
         monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
         if not monster:
             return False
@@ -62,7 +76,7 @@ class SiegeEngine:
 
     def attack_boss(self, damage: int = 35) -> bool:
         boss = self.state.raid_boss
-        if not boss:
+        if not boss or self.state.game_over:
             return False
         boss.hp = max(0, boss.hp - max(1, min(damage, 100)))
         if boss.hp == 0:
@@ -73,4 +87,5 @@ class SiegeEngine:
             self.state.raid_boss = None
             self.monsters.clear()
             self.spawn_cooldown = 0
+            self.state.base_hp = min(self.state.max_base_hp, self.state.base_hp + 20)
         return True
