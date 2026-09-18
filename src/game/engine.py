@@ -1,0 +1,72 @@
+import random
+from .models import GameState, Monster, MonsterRarity, RaidBoss
+
+MONSTERS = [
+    ("Grublet", MonsterRarity.COMMON, "🐛", 5, 8),
+    ("Nightfang", MonsterRarity.UNCOMMON, "🐺", 12, 14),
+    ("Scorpling", MonsterRarity.RARE, "🦂", 20, 20),
+    ("Brutox", MonsterRarity.ELITE, "👹", 35, 30),
+]
+BOSSES = [("Dreadmaw", 220, "🐉"), ("Iron Behemoth", 280, "🦖"), ("Void Stag", 250, "🦌")]
+
+class SiegeEngine:
+    def __init__(self, seed: int | None = None):
+        self.rng = random.Random(seed)
+        self.state = GameState()
+        self.monsters: list[Monster] = []
+        self.next_id = 1
+
+    def spawn_monster(self) -> Monster | None:
+        if self.state.raid_active:
+            return None
+        name, rarity, icon, threat, hp = self.rng.choice(MONSTERS)
+        monster = Monster(self.next_id, name, rarity, round(self.rng.uniform(120, 900), 1), hp, threat, icon)
+        self.next_id += 1
+        self.monsters.append(monster)
+        self.state.threat = min(self.state.threat_threshold, self.state.threat + threat)
+        if self.state.threat >= self.state.threat_threshold:
+            self.start_raid()
+        return monster
+
+    def advance(self, seconds: int = 10) -> None:
+        seconds = max(0, min(seconds, 300))
+        for monster in self.monsters:
+            if monster.alive:
+                monster.distance = max(0.0, round(monster.distance - seconds * self.rng.uniform(0.8, 2.2), 1))
+        if not self.state.raid_active and self.rng.random() < min(0.9, seconds / 30):
+            self.spawn_monster()
+
+    def attack(self, monster_id: int, damage: int = 25) -> bool:
+        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
+        if not monster:
+            return False
+        monster.hp = max(0, monster.hp - max(1, min(damage, 100)))
+        if monster.hp == 0:
+            monster.alive = False
+            self.state.defeated += 1
+            self.state.coins += 5 + monster.threat_value
+            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
+        return True
+
+    def start_raid(self) -> RaidBoss:
+        if self.state.raid_boss:
+            return self.state.raid_boss
+        name, hp, icon = self.rng.choice(BOSSES)
+        boss = RaidBoss(name, hp, hp, self.state.threat_threshold, icon)
+        self.state.raid_active = True
+        self.state.raid_boss = boss
+        return boss
+
+    def attack_boss(self, damage: int = 35) -> bool:
+        boss = self.state.raid_boss
+        if not boss:
+            return False
+        boss.hp = max(0, boss.hp - max(1, min(damage, 100)))
+        if boss.hp == 0:
+            self.state.coins += 100
+            self.state.wave += 1
+            self.state.threat = 0
+            self.state.raid_active = False
+            self.state.raid_boss = None
+            self.monsters.clear()
+        return True
