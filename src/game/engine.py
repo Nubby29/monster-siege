@@ -21,27 +21,7 @@ class SiegeEngine:
         self.state.combat_log.append(message)
         self.state.combat_log = self.state.combat_log[-8:]
 
-    def _counter(self, monster):
-        if not monster.alive or self.state.game_over: return
-        damage = self.rng.randint(5, 12) + (3 if monster.rarity == MonsterRarity.ELITE else 0)
-        if self.state.defending:
-            damage = max(1, damage // 2)
-            self.state.defending = False
-            self.log(f'🛡 Guard reduced {monster.name} damage to {damage}.')
-        else: self.log(f'{monster.name} attacked you for {damage} damage.')
-        self.state.player_hp = max(0, self.state.player_hp - damage)
-        if self.state.player_hp == 0:
-            self.state.game_over = True
-            self.log('💀 Hunter defeated.')
-
-    def _cooldown(self):
-        self.state.skill_cooldown = max(0, self.state.skill_cooldown - 1)
-
-    def log(self, message: str):
-        self.state.combat_log.append(message)
-        self.state.combat_log = self.state.combat_log[-8:]
-
-    def spawn_monster(self) -> Monster | None:
+    def spawn_monster(self):
         if self.state.raid_active or self.state.game_over:
             return None
         name, rarity, icon, threat, hp = self.rng.choice(MONSTERS)
@@ -49,14 +29,12 @@ class SiegeEngine:
         self.next_id += 1
         self.monsters.append(monster)
         self.state.threat = min(self.state.threat_threshold, self.state.threat + threat)
-        self.log(f'{name} entered the siege zone (+{threat} threat).')
-        if self.state.threat >= self.state.threat_threshold: self.start_raid()
         self.log(f"{name} entered the siege zone (+{threat} threat).")
         if self.state.threat >= self.state.threat_threshold:
             self.start_raid()
         return monster
 
-    def advance(self, seconds: int = 10) -> None:
+    def advance(self, seconds=10):
         if self.state.game_over:
             return
         seconds = max(0, min(seconds, 300))
@@ -78,143 +56,83 @@ class SiegeEngine:
             self.spawn_monster()
             self.spawn_cooldown = self.rng.uniform(8, 18)
 
-    def _cooldown_tick(self):
-        self.state.skill_cooldown = max(0, self.state.skill_cooldown - 1)
-
-    def _monster_counter(self, monster: Monster):
+    def _counter(self, monster):
         if not monster.alive or self.state.game_over:
             return
-        damage = self.rng.randint(5, 12)
-        if monster.rarity == MonsterRarity.ELITE:
-            damage += 3
+        damage = self.rng.randint(5, 12) + (3 if monster.rarity == MonsterRarity.ELITE else 0)
         if self.state.defending:
             damage = max(1, damage // 2)
             self.state.defending = False
-            self.log(f"You defended. {monster.name}'s attack was reduced to {damage}.")
+            self.log(f"🛡 Guard reduced {monster.name}'s damage to {damage}.")
         else:
             self.log(f"{monster.name} attacked you for {damage} damage.")
         self.state.player_hp = max(0, self.state.player_hp - damage)
         if self.state.player_hp == 0:
             self.state.game_over = True
-            self.log("💀 You were defeated. The siege continues no further.")
+            self.log("💀 Hunter defeated.")
 
-    def attack(self, monster_id: int, damage: int = 25) -> bool:
-        if self.state.game_over:
-            return False
+    def _finish_monster(self, monster):
+        monster.alive = False
+        self.state.defeated += 1
+        reward = 5 + monster.threat_value
+        self.state.coins += reward
+        self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
+        self.log(f"✓ {monster.name} defeated. +{reward} coins.")
+
+    def _cooldown_tick(self):
+        self.state.skill_cooldown = max(0, self.state.skill_cooldown - 1)
+
+    def attack(self, monster_id, damage=25):
         monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster:
+        if not monster or self.state.game_over:
             return False
         damage = max(1, min(damage, 100))
         monster.hp = max(0, monster.hp - damage)
         self.log(f"You attacked {monster.name} for {damage} damage.")
         if monster.hp == 0:
-            monster.alive = False
-            self.state.defeated += 1
-            reward = 5 + monster.threat_value
-            self.state.coins += reward
-            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
-            self.log(f"✓ {monster.name} defeated. +{reward} coins.")
+            self._finish_monster(monster)
         else:
-            self._monster_counter(monster)
+            self._counter(monster)
         self._cooldown_tick()
         return True
 
-    def defend(self, monster_id: int) -> bool:
-        if self.state.game_over:
-            return False
+    def defend(self, monster_id):
         monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster:
+        if not monster or self.state.game_over:
             return False
         self.state.defending = True
         self.log(f"You raised your guard against {monster.name}.")
-        self._monster_counter(monster)
+        self._counter(monster)
         self._cooldown_tick()
         return True
 
-    def use_potion(self, monster_id: int) -> bool:
-        if self.state.game_over or self.state.potions <= 0:
-            return False
+    def use_potion(self, monster_id):
         monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster:
-            return False
-        if self.state.player_hp >= self.state.max_player_hp:
+        if not monster or self.state.game_over or self.state.potions <= 0 or self.state.player_hp >= self.state.max_player_hp:
             return False
         before = self.state.player_hp
         self.state.player_hp = min(self.state.max_player_hp, self.state.player_hp + 30)
         self.state.potions -= 1
-        self.log(f"You used a potion and recovered {self.state.player_hp - before} HP.")
-        self._monster_counter(monster)
+        self.log(f"🧪 Potion restored {self.state.player_hp - before} HP.")
+        self._counter(monster)
         self._cooldown_tick()
         return True
 
-    def use_skill(self, monster_id: int, damage: int = 45) -> bool:
-        if self.state.game_over or self.state.skill_cooldown > 0:
-            return False
+    def use_skill(self, monster_id, damage=45):
         monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster:
+        if not monster or self.state.game_over or self.state.skill_cooldown > 0:
             return False
         damage = max(1, min(damage, 100))
         monster.hp = max(0, monster.hp - damage)
         self.state.skill_cooldown = 3
         self.log(f"⚡ Power Strike dealt {damage} damage to {monster.name}.")
         if monster.hp == 0:
-            monster.alive = False
-            self.state.defeated += 1
-            reward = 5 + monster.threat_value
-            self.state.coins += reward
-            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
-            self.log(f"✓ {monster.name} defeated. +{reward} coins.")
-        else:
-            self._monster_counter(monster)
-        if monster.hp == 0:
-            monster.alive = False
-            self.state.defeated += 1
-            reward = 5 + monster.threat_value
-            self.state.coins += reward
-            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
-            self.log(f'✓ {monster.name} defeated. +{reward} coins.')
+            self._finish_monster(monster)
         else:
             self._counter(monster)
-        self._cooldown()
         return True
 
-    def defend(self, monster_id: int) -> bool:
-        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster or self.state.game_over: return False
-        self.state.defending = True
-        self.log(f'You raised your guard against {monster.name}.')
-        self._counter(monster)
-        self._cooldown()
-        return True
-
-    def use_potion(self, monster_id: int) -> bool:
-        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster or self.state.game_over or self.state.potions <= 0 or self.state.player_hp >= self.state.max_player_hp: return False
-        before = self.state.player_hp
-        self.state.player_hp = min(self.state.max_player_hp, self.state.player_hp + 30)
-        self.state.potions -= 1
-        self.log(f'🧪 Potion restored {self.state.player_hp-before} HP.')
-        self._counter(monster)
-        self._cooldown()
-        return True
-
-    def use_skill(self, monster_id: int) -> bool:
-        monster = next((m for m in self.monsters if m.id == monster_id and m.alive), None)
-        if not monster or self.state.game_over or self.state.skill_cooldown > 0: return False
-        monster.hp = max(0, monster.hp - 45)
-        self.state.skill_cooldown = 3
-        self.log(f'⚡ Power Strike dealt 45 damage to {monster.name}.')
-        if monster.hp == 0:
-            monster.alive = False
-            self.state.defeated += 1
-            reward = 5 + monster.threat_value
-            self.state.coins += reward
-            self.state.threat = max(0, self.state.threat - max(1, monster.threat_value // 3))
-            self.log(f'✓ {monster.name} defeated. +{reward} coins.')
-        else: self._counter(monster)
-        return True
-
-    def start_raid(self) -> RaidBoss:
+    def start_raid(self):
         if self.state.raid_boss:
             return self.state.raid_boss
         name, hp, icon = self.rng.choice(BOSSES)
@@ -224,11 +142,12 @@ class SiegeEngine:
         self.log(f"🚨 RAID BOSS: {name} has appeared!")
         return boss
 
-    def attack_boss(self, damage: int = 35) -> bool:
+    def attack_boss(self, damage=35):
         boss = self.state.raid_boss
         if not boss or self.state.game_over:
             return False
-        boss.hp = max(0, boss.hp - max(1, min(damage, 100)))
+        damage = max(1, min(damage, 100))
+        boss.hp = max(0, boss.hp - damage)
         self.log(f"You attacked {boss.name} for {damage} damage.")
         if boss.hp == 0:
             self.state.coins += 100
