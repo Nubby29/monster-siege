@@ -10,8 +10,8 @@ class MonsterSiegeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Monster Siege — Prototype 0.5")
-        self.root.geometry("1160x820")
-        self.root.minsize(980, 760)
+        self.root.geometry("1160x700")
+        self.root.minsize(980, 650)
         self.game = SiegeEngine()
         self.running = False
         self.selected_id = None
@@ -36,9 +36,8 @@ class MonsterSiegeApp:
 
         body = ttk.Frame(root)
         body.pack(fill="x", pady=(0, 0))
-        body.configure(height=440)
         self.canvas = tk.Canvas(body, bg="#dfe7dc", highlightthickness=1, highlightbackground="#b9c2b5")
-        self.canvas.config(height=440)
+        self.canvas.config(height=360)
         self.canvas.pack(side="left", fill="both", expand=True)
         self.canvas.bind("<Button-1>", self.map_click)
 
@@ -47,11 +46,11 @@ class MonsterSiegeApp:
         ttk.Label(encounter, text="ENCOUNTER", font=("Segoe UI", 16, "bold")).pack(anchor="w")
         ttk.Separator(encounter).pack(fill="x", pady=8)
         self.encounter_icon = ttk.Label(encounter, text="👾", font=("Segoe UI Emoji", 42))
-        self.encounter_icon.pack(pady=(2, 1))
+        self.encounter_icon.pack(pady=(0, 0))
         self.encounter_name = ttk.Label(encounter, text="No target", font=("Segoe UI", 14, "bold"))
         self.encounter_name.pack()
         self.encounter_info = ttk.Label(encounter, text="Select a monster.", justify="center")
-        self.encounter_info.pack(pady=2)
+        self.encounter_info.pack(pady=1)
         self.hp_bar = ttk.Progressbar(encounter, maximum=100, length=180)
         self.hp_bar.pack(pady=1)
         self.hp_label = ttk.Label(encounter, text="")
@@ -62,7 +61,7 @@ class MonsterSiegeApp:
         self.player_label = ttk.Label(encounter, text="")
         self.player_label.pack()
         ttk.Label(encounter, text="COMBAT LOG", font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(10, 2))
-        self.combat_log = tk.Listbox(encounter, height=4, width=30, font=("Consolas", 8))
+        self.combat_log = tk.Listbox(encounter, height=3, width=30, font=("Consolas", 8))
         self.combat_log.pack(fill="x", pady=(0, 2))
         self.attack_button = ttk.Button(encounter, text="⚔ Attack", command=self.attack_selected, state="disabled")
         self.attack_button.pack(fill="x", pady=(6, 2))
@@ -75,10 +74,10 @@ class MonsterSiegeApp:
         self.flee_button = ttk.Button(encounter, text="Flee", command=self.flee, state="disabled")
         self.flee_button.pack(fill="x", pady=(4, 0))
         self.encounter_message = ttk.Label(encounter, text="", wraplength=190, justify="center")
-        self.encounter_message.pack(pady=4)
+        self.encounter_message.pack(pady=2)
 
         controls = ttk.Frame(root)
-        controls.pack(fill="x", pady=(8, 0))
+        controls.pack(fill="x", pady=(6, 0))
         self.toggle_button = ttk.Button(controls, text="Start Siege", command=self.toggle)
         self.toggle_button.pack(side="left", padx=(0, 8))
         ttk.Button(controls, text="Spawn Monster", command=self.spawn).pack(side="left", padx=(0, 8))
@@ -87,7 +86,7 @@ class MonsterSiegeApp:
         self.boss_button.pack(side="left", padx=(0, 8))
         ttk.Button(controls, text="Reset", command=self.reset).pack(side="right")
         self.status = ttk.Label(root, font=("Segoe UI", 12, "bold"))
-        self.status.pack(anchor="w", pady=(6, 0))
+        self.status.pack(anchor="w", pady=(4, 0))
 
     def toggle(self):
         if self.game.state.game_over:
